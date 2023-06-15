@@ -43,7 +43,7 @@ class StableDiffusionPipeline(DiffusersPipeline):
         # build complete the diffuser stable diffusion pipeline
         if unet_dir is None and text_encoder_dir is None:
             self.pipeline = DiffuserStableDiffusionPipeline.from_pretrained(
-                model, torch_dtype=torch.float16)        
+                model, torch_dtype=torch.float16)        s
         # build respectively diffuser stable diffusion pipeline
         else:
             if unet_dir is not None:
