@@ -6,13 +6,13 @@ from typing import Any, Dict
 import cv2
 import numpy as np
 import torch
+from diffusers import AutoencoderKL, DDPMScheduler
 from diffusers import \
     StableDiffusionPipeline as DiffuserStableDiffusionPipeline
+from diffusers import UNet2DConditionModel
 from diffusers.pipelines.stable_diffusion import StableDiffusionSafetyChecker
-from diffusers import (StableDiffusionPipeline, AutoencoderKL, 
-                       DDPMScheduler, UNet2DConditionModel)
-from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
 from PIL import Image
+from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
 
 from modelscope.metainfo import Pipelines
 from modelscope.outputs import OutputKeys
@@ -27,8 +27,12 @@ from modelscope.utils.constant import Tasks
     module_name=Pipelines.diffusers_stable_diffusion)
 class StableDiffusionPipeline(DiffusersPipeline):
 
-    def __init__(self, model: str, lora_dir: str = None, 
-                 unet_dir: str = None, text_encoder_dir: str = None, **kwargs):
+    def __init__(self,
+                 model: str,
+                 lora_dir: str = None,
+                 unet_dir: str = None,
+                 text_encoder_dir: str = None,
+                 **kwargs):
         """
         use `model` to create a stable diffusion pipeline
         Args:
@@ -39,40 +43,46 @@ class StableDiffusionPipeline(DiffusersPipeline):
         """
 
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    
+
         # build complete the diffuser stable diffusion pipeline
         if unet_dir is None and text_encoder_dir is None:
             self.pipeline = DiffuserStableDiffusionPipeline.from_pretrained(
-                model, torch_dtype=torch.float16)        s
+                model, torch_dtype=torch.float16)
         # build respectively diffuser stable diffusion pipeline
         else:
             if unet_dir is not None:
                 unet = UNet2DConditionModel.from_pretrained(unet_dir)
             else:
-                unet = UNet2DConditionModel.from_pretrained(model, subfolder='unet')
+                unet = UNet2DConditionModel.from_pretrained(
+                    model, subfolder='unet')
             if text_encoder_dir is not None:
                 text_encoder = CLIPTextModel.from_pretrained(text_encoder_dir)
             else:
-                text_encoder = CLIPTextModel.from_pretrained(model, subfolder="text_encoder")
-            
+                text_encoder = CLIPTextModel.from_pretrained(
+                    model, subfolder='text_encoder')
+
             vae = AutoencoderKL.from_pretrained(model, subfolder='vae')
-            tokenizer = CLIPTokenizer.from_pretrained(model, subfolder='tokenizer')
-            scheduler = DDPMScheduler.from_pretrained(model, subfolder='scheduler')
+            tokenizer = CLIPTokenizer.from_pretrained(
+                model, subfolder='tokenizer')
+            scheduler = DDPMScheduler.from_pretrained(
+                model, subfolder='scheduler')
             self.pipeline = StableDiffusionPipeline(
                 text_encoder=text_encoder,
                 vae=vae,
                 unet=unet,
                 tokenizer=tokenizer,
                 scheduler=scheduler,
-                safety_checker=StableDiffusionSafetyChecker.from_pretrained("CompVis/stable-diffusion-safety-checker"),
-                feature_extractor=CLIPFeatureExtractor.from_pretrained("openai/clip-vit-base-patch32"),
+                safety_checker=StableDiffusionSafetyChecker.from_pretrained(
+                    'CompVis/stable-diffusion-safety-checker'),
+                feature_extractor=CLIPFeatureExtractor.from_pretrained(
+                    'openai/clip-vit-base-patch32'),
             )
 
         # load lora moudle to unet
         if lora_dir is not None:
             assert os.path.exists(lora_dir), f"{lora_dir} isn't exist"
             self.pipeline.unet.load_attn_procs(lora_dir)
-        
+
         self.pipeline = self.pipeline.to(self.device)
 
     def preprocess(self, inputs: Dict[str, Any], **kwargs) -> Dict[str, Any]:
